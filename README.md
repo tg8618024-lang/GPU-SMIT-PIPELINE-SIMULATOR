@@ -11,6 +11,10 @@ SIMT-Flow is a comprehensive, cycle-accurate, browser-native hardware simulation
 ![Tests: 26/26 Passing](https://img.shields.io/badge/Verification-26%2F26%20PASS-brightgreen)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow)
 
+### 🌐 [Click Here to Open the Live Simulator Website](https://tg8618024-lang.github.io/GPU-SMIT-PIPELINE-SIMULATOR/)
+
+No installation or setup required. Run cycle-accurate simulations, compiler passes, and hardware benchmarks directly in your browser.
+
 ---
 
 ## 🚀 Quick Start
