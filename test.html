@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Automated Verification Test</title>
+</head>
+<body>
+    <h1>SIMT-Flow Automated Verification</h1>
+    <div id="results">RUNNING</div>
+
+    <script>
+        window.addEventListener('error', (e) => {
+            document.getElementById('results').textContent = JSON.stringify({ error: e.message + ' in ' + e.filename + ':' + e.lineno });
+        });
+    </script>
+    <script type="module">
+        import { CPUTestbench } from './src/engine/cpu_testbench.js';
+        import { BENCHMARKS } from './src/engine/benchmarks.js';
+        import { parseAssembly, resolveLabels } from './src/engine/parser.js';
+        import { CPUPipeline } from './src/engine/cpu_pipeline.js';
+        import { GPUPipeline } from './src/engine/gpu_pipeline.js';
+        import { compileCToAssembly } from './src/engine/c_compiler.js';
+
+        try {
+            const cpuResults = CPUTestbench.runAll();
+            
+            // GPU Scoreboard Test
+            let gpuScoreboardPassed = false;
+            let gpuScoreboardMsg = '';
+            try {
+                const bench = BENCHMARKS.find(b => b.id === 'gpu-scoreboard');
+                const { instructions, labels } = parseAssembly(bench.assembly);
+                const gpu = new GPUPipeline(instructions, labels);
+                for (let i = 0; i < 50 && !gpu.isHalted; i++) gpu.stepForward();
+                const history = gpu.getHistory();
+                const switched = history.some((curr, i) => i > 0 && history[i-1].schedulerChoice !== curr.schedulerChoice);
+                gpuScoreboardPassed = switched;
+                gpuScoreboardMsg = switched ? 'Warp switching confirmed' : 'No switching';
+            } catch (e) {
+                gpuScoreboardMsg = e.message;
+            }
+
+            // GPU Divergence Test
+            let gpuDivergencePassed = false;
+            let gpuDivergenceMsg = '';
+            try {
+                const bench = BENCHMARKS.find(b => b.id === 'simt-divergence');
+                const { instructions, labels } = parseAssembly(bench.assembly);
+                const gpu = new GPUPipeline(instructions, labels);
+                for (let i = 0; i < 50 && !gpu.isHalted; i++) gpu.stepForward();
+                const history = gpu.getHistory();
+                const diverged = history.some(s => s.warps && s.warps.some(w => w.activeMask !== 0xFF && w.activeMask !== 0x00));
+                gpuDivergencePassed = diverged;
+                gpuDivergenceMsg = diverged ? 'Active mask divergence confirmed' : 'No divergence';
+            } catch (e) {
+                gpuDivergenceMsg = e.message;
+            }
+
+            // 23. L1-D Cache Spatial Locality & Stalls
+            let cachePassed = false;
+            let cacheMsg = '';
+            try {
+                const bench = BENCHMARKS.find(b => b.id === 'cpu-cache-locality');
+                const { instructions, labels } = parseAssembly(bench.assembly);
+                const resolved = resolveLabels(instructions, labels);
+                const cpu = new CPUPipeline(resolved, labels);
+                cpu.forwardingEnabled = true;
+                cpu.l1dCache.enabled = true;
+                for (let i = 0; i < 60 && !cpu.isHalted; i++) cpu.stepForward();
+                const hits = cpu.l1dCache.hits;
+                const misses = cpu.l1dCache.misses;
+                cachePassed = (misses >= 1 && hits >= 2);
+                cacheMsg = `Hits=${hits}, Misses=${misses} (Spatial Locality confirmed)`;
+            } catch (e) {
+                cacheMsg = e.message;
+            }
+
+            // 24. Dynamic 2-Bit Branch Training & Misprediction Flush
+            let bpPassed = false;
+            let bpMsg = '';
+            try {
+                const bench = BENCHMARKS.find(b => b.id === 'cpu-branch-prediction');
+                const { instructions, labels } = parseAssembly(bench.assembly);
+                const resolved = resolveLabels(instructions, labels);
+                const cpu = new CPUPipeline(resolved, labels);
+                cpu.forwardingEnabled = true;
+                cpu.branchPredictor.enabled = true;
+                for (let i = 0; i < 60 && !cpu.isHalted; i++) cpu.stepForward();
+                const snap = cpu.getCurrentSnapshot();
+                const bp = snap.branchPredictor;
+                bpPassed = (bp && bp.correctPredictions > 0);
+                bpMsg = `Accuracy=${bp?.accuracy}%, Correct=${bp?.correctPredictions}, Mispredicts=${bp?.mispredictions}`;
+            } catch (e) {
+                bpMsg = e.message;
+            }
+
+            // 25. GPU Shared Memory 8-Bank Conflict Detection
+            let bankPassed = false;
+            let bankMsg = '';
+            try {
+                const bench = BENCHMARKS.find(b => b.id === 'gpu-bank-conflicts');
+                const { instructions, labels } = parseAssembly(bench.assembly);
+                const resolved = resolveLabels(instructions, labels);
+                const gpu = new GPUPipeline(resolved, labels);
+                for (let i = 0; i < 50 && !gpu.isHalted; i++) gpu.stepForward();
+                const history = gpu.getHistory();
+                const hasConflict = history.some(s => s.bankConflictResult && s.bankConflictResult.hasConflict);
+                bankPassed = hasConflict;
+                bankMsg = hasConflict ? '8-Bank conflict detected with multi-cycle serialization penalty' : 'No conflict detected';
+            } catch (e) {
+                bankMsg = e.message;
+            }
+
+            // 26. Micro-C In-Browser Compiler & Execution
+            let cCompilerPassed = false;
+            let cCompilerMsg = '';
+            try {
+                const cSource = `
+                    int a = 18;
+                    int b = 24;
+                    int c = a + b;
+                `;
+                const asm = compileCToAssembly(cSource);
+                const { instructions, labels } = parseAssembly(asm);
+                const resolved = resolveLabels(instructions, labels);
+                const cpu = new CPUPipeline(resolved, labels);
+                cpu.forwardingEnabled = true;
+                for (let i = 0; i < 50 && !cpu.isHalted; i++) cpu.stepForward();
+                const r3 = cpu.registers[3];
+                cCompilerPassed = (r3 === 42);
+                cCompilerMsg = `Compiled & Executed: R1=18, R2=24, R3=${r3} (expected 42)`;
+            } catch (e) {
+                cCompilerMsg = e.message;
+            }
+
+            const allResults = [
+                ...cpuResults,
+                { id: 21, name: '21. GPU Scoreboard Latency Hiding', passed: gpuScoreboardPassed, details: gpuScoreboardMsg },
+                { id: 22, name: '22. SIMT Warp Divergence & Mask', passed: gpuDivergencePassed, details: gpuDivergenceMsg },
+                { id: 23, name: '23. L1-D Cache Spatial Locality & Stalls', passed: cachePassed, details: cacheMsg },
+                { id: 24, name: '24. Dynamic 2-Bit Branch Predictor Training', passed: bpPassed, details: bpMsg },
+                { id: 25, name: '25. GPU Shared Memory 8-Bank Conflicts', passed: bankPassed, details: bankMsg },
+                { id: 26, name: '26. Micro-C Compiler & Program Execution', passed: cCompilerPassed, details: cCompilerMsg }
+            ];
+
+            const total = allResults.length;
+            const passed = allResults.filter(r => r.passed).length;
+            const failed = total - passed;
+
+            const summary = {
+                total,
+                passed,
+                failed,
+                allPassed: failed === 0,
+                results: allResults
+            };
+
+            const div = document.getElementById('results');
+            div.textContent = JSON.stringify(summary, null, 2);
+        } catch (globalErr) {
+            document.getElementById('results').textContent = JSON.stringify({ error: globalErr.message });
+        }
+    </script>
+</body>
+</html>

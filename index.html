@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="nvidia">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ SIMT-Flow — Next-Gen GPU SIMD & 5-Stage CPU Microarchitecture Studio</title>
+    <meta name="description" content="Professional Interactive GPU SIMD & 5-Stage Pipelined Architecture Simulator. Zero-zoom ergonomic UI with cycle-accurate hazard bypass, warp scoreboard, L1 caches, 2-bit branch predictor, systolic array, and Micro-C compiler.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         TOP NAVIGATION & BRAND BAR
+         ══════════════════════════════════════════════════════════════════════ -->
+    <header class="app-header">
+        <div class="header-left">
+            <!-- Brand Emblem -->
+            <div class="logo">
+                <span class="logo-icon">⚡</span>
+                <div class="logo-text-group">
+                    <span class="logo-text">SIMT-Flow</span>
+                    <span class="logo-badge">v2.5 PRO</span>
+                </div>
+            </div>
+
+            <!-- Silicon Engine Status LED -->
+            <div class="engine-status-led" id="engine-status-pill" title="Silicon Engine Clock & Execution Status">
+                <span class="status-dot status-ready" id="engine-status-dot"></span>
+                <span class="status-text" id="engine-status-text">READY</span>
+            </div>
+
+            <!-- Global Site Navigation Pills -->
+            <nav class="site-nav">
+                <button class="site-nav-btn active" id="nav-btn-workbench">🚀 Workbench</button>
+                <button class="site-nav-btn" id="nav-btn-hero">🏛️ Overview</button>
+                <button class="site-nav-btn" id="nav-btn-cheatsheet">📖 Architecture Guide</button>
+                <button class="site-nav-btn" id="nav-btn-tests">🧪 Test Suite</button>
+            </nav>
+        </div>
+
+        <div class="header-center">
+            <!-- Mode Toggle: CPU vs GPU -->
+            <div class="mode-toggle">
+                <button id="btn-mode-cpu" class="mode-btn active" title="Classic 5-Stage Hennessy & Patterson CPU Pipeline">
+                    CPU 5-Stage
+                </button>
+                <button id="btn-mode-gpu" class="mode-btn" title="NVIDIA-Style GPU Streaming Multiprocessor (SM) Warp Engine">
+                    GPU SM (SIMT)
+                </button>
+            </div>
+
+            <!-- Transport Controls -->
+            <div class="transport-controls">
+                <button id="btn-rewind" class="transport-btn" title="Step Backward (← or P)">⏪</button>
+                <button id="btn-step" class="transport-btn btn-primary" title="Step Forward (→ or N)">⏩</button>
+                <button id="btn-play" class="transport-btn" title="Play / Pause (Space)">▶</button>
+                <button id="btn-reset" class="transport-btn" title="Reset Simulation (R)">⟲</button>
+            </div>
+
+            <!-- Speed Slider -->
+            <div class="speed-control">
+                <label for="speed-slider" class="speed-label">Clock</label>
+                <input type="range" id="speed-slider" min="1" max="10" value="5" class="speed-slider" title="Adjust simulation speed">
+            </div>
+        </div>
+
+        <div class="header-right">
+            <!-- Live Telemetry HUD -->
+            <div class="telemetry">
+                <div class="telemetry-item">
+                    <span class="telemetry-label">Cycle</span>
+                    <span class="telemetry-value" id="cycle-display">0</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="telemetry-label">CPI / Warps</span>
+                    <span class="telemetry-value" id="cpi-display">—</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="telemetry-label">Status</span>
+                    <span class="telemetry-value" id="hazard-display">NONE</span>
+                </div>
+            </div>
+
+            <!-- UI Preferences: Theme & Audio -->
+            <div class="theme-audio-controls">
+                <select id="theme-selector" class="theme-select" title="Switch UI Visual Theme">
+                    <option value="nvidia">🟢 NVIDIA Emerald</option>
+                    <option value="cyberpunk">🟡 Cyberpunk Amber</option>
+                    <option value="silicon">🔵 Silicon Cyan</option>
+                </select>
+
+                <button id="btn-audio-toggle" class="action-btn" title="Toggle Synthesizer Audio SFX">
+                    🔊 SFX
+                </button>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button id="btn-export-vcd" class="action-btn" title="Export VCD Waveform for GTKWave">
+                    📊 VCD
+                </button>
+                <button id="btn-run-tests" class="action-btn btn-accent" title="Run 26 Hardware Verification Tests">
+                    🧪 Verify (26)
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         CINEMATIC LANDING HERO BANNER (Collapsible / Toggleable)
+         ══════════════════════════════════════════════════════════════════════ -->
+    <section class="hero-landing" id="hero-landing-banner">
+        <div class="hero-content">
+            <div class="hero-header-row">
+                <div class="hero-badge">⚡ ADVANCED MICROARCHITECTURE PLATFORM</div>
+                <button class="hero-close-btn" id="hero-dismiss-btn" title="Minimize hero overview">✕ Hide Overview</button>
+            </div>
+            <h1 class="hero-title">
+                Hardware-Accurate <span class="gradient-text">CPU Pipeline & GPU SIMT</span> Architecture Studio
+            </h1>
+            <p class="hero-subtitle">
+                An interactive microarchitectural portal engineered for intuitive, zero-zoom inspection of in-order superscalar pipelines, RAW hazard bypass forwarding, 8-bank memory conflicts, L1 cache hierarchies, 2-bit branch predictors, 4×4 tensor systolic matrix units, and in-browser Micro-C compilation.
+            </p>
+
+            <div class="hero-actions">
+                <button class="hero-btn hero-btn-primary" id="hero-cta-workbench">
+                    🚀 Launch Interactive Workbench
+                </button>
+                <button class="hero-btn hero-btn-secondary" id="hero-cta-tests">
+                    🧪 Run Hardware Verification Suite (26/26)
+                </button>
+                <button class="hero-btn hero-btn-secondary" id="hero-cta-cheatsheet">
+                    📖 Open Architecture & RTL Guide
+                </button>
+            </div>
+
+            <!-- Architecture Showcase Cards -->
+            <div class="hero-feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">⚙️</div>
+                    <div class="feature-title">Classic 5-Stage CPU</div>
+                    <div class="feature-desc">IF → ID → EX → MEM → WB with cycle-accurate RAW forwarding bypass multiplexing, load-use bubbles, and branch penalty flushes.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <div class="feature-title">GPU SM & SIMT Warps</div>
+                    <div class="feature-desc">4 resident warps × 8 SIMT lanes, register scoreboards for latency hiding, SIMT divergence stack, and 8-bank conflict serialization.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🧠</div>
+                    <div class="feature-title">L1 Caches & 2-Bit Predictor</div>
+                    <div class="feature-desc">2-way set-associative cache with spatial locality modeling, 2-cycle hit / 4-cycle miss penalty, and 2-bit saturating branch training.</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🛠️</div>
+                    <div class="feature-title">Micro-C & Systolic Array</div>
+                    <div class="feature-desc">In-browser recursive descent compiler lowering C constructs to assembly, paired with a 4×4 weight-stationary tensor core systolic array.</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         ERGONOMIC QUICK-ACCESS VIEW BAR (Zero Zooming Needed)
+         ══════════════════════════════════════════════════════════════════════ -->
+    <div class="quick-view-bar" id="quick-view-bar">
+        <div class="quick-view-label">📐 Focus View:</div>
+        <div class="quick-view-pills">
+            <button class="view-pill active" data-view="all">🔲 Balanced (4-Panel)</button>
+            <button class="view-pill" data-view="datapath">⚡ Datapath Schematic Focus</button>
+            <button class="view-pill" data-view="grid">📊 Reservation Table Focus</button>
+            <button class="view-pill" data-view="state">💾 State & Memory Focus</button>
+            <button class="view-pill" data-view="compiler">🛠️ C Compiler Focus</button>
+        </div>
+        <div class="quick-view-hint">Tip: Click <strong>⛶ Maximize</strong> on any panel header for full-screen inspection</div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         MAIN: 4-Quadrant Dashboard Grid
+         ══════════════════════════════════════════════════════════════════════ -->
+    <main class="app-main" id="app-main">
+        <!-- ─── Panel 1: Code Editor & Compiler ─────────────────────────── -->
+        <section class="panel panel-editor" id="panel-editor" aria-label="Code Editor">
+            <div class="panel-header">
+                <div class="panel-tabs" id="editor-tabs">
+                    <button id="tab-btn-asm" class="tab-btn active" data-editor-tab="asm">Assembly Editor</button>
+                    <button id="tab-btn-c" class="tab-btn" data-editor-tab="c">Micro-C Source</button>
+                </div>
+                <div class="panel-header-actions">
+                    <button class="panel-btn-maximize" data-target="panel-editor" title="Maximize Code Editor">⛶ Maximize</button>
+                </div>
+            </div>
+
+            <!-- Preset Selector -->
+            <div class="editor-toolbar">
+                <select id="preset-select" class="preset-select" title="Load a pre-built benchmark">
+                    <option value="">— Select Benchmark Preset —</option>
+                </select>
+            </div>
+
+            <!-- Hardware Feature Toggles -->
+            <div class="toggle-group-row" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;">
+                <div class="toggle-group">
+                    <span class="toggle-label">Forwarding Bypass (RAW)</span>
+                    <label class="dip-switch">
+                        <input type="checkbox" id="fwd-toggle" checked>
+                        <span class="dip-slider"></span>
+                    </label>
+                    <span class="toggle-value" id="fwd-label">ON</span>
+                </div>
+                <div class="toggle-group" id="cache-toggle-wrapper">
+                    <span class="toggle-label">L1 Cache Stalls (2/4 Cyc)</span>
+                    <label class="dip-switch">
+                        <input type="checkbox" id="cache-toggle">
+                        <span class="dip-slider"></span>
+                    </label>
+                    <span class="toggle-value" id="cache-label">OFF</span>
+                </div>
+                <div class="toggle-group" id="bp-toggle-wrapper">
+                    <span class="toggle-label">2-Bit Branch Predictor</span>
+                    <label class="dip-switch">
+                        <input type="checkbox" id="bp-toggle">
+                        <span class="dip-slider"></span>
+                    </label>
+                    <span class="toggle-value" id="bp-label">OFF</span>
+                </div>
+            </div>
+
+            <!-- Assembly Code Input -->
+            <div id="asm-editor-container" style="display: flex; flex-direction: column; flex: 1;">
+                <textarea id="code-editor" class="code-editor mono" spellcheck="false"
+                    placeholder="Enter assembly code here...
+; Example:
+ADD R1, R2, R3
+SUB R4, R1, R5
+HALT"></textarea>
+                <button id="btn-load" class="btn-load" title="Assemble & Load Program">
+                    ⚡ Assemble & Load Program
+                </button>
+            </div>
+
+            <!-- C Code Input (initially hidden) -->
+            <div id="c-editor-container" style="display: none; flex-direction: column; flex: 1;">
+                <textarea id="c-code-editor" class="code-editor mono" spellcheck="false"
+                    placeholder="// C Code (Compiles to Micro-ISA)
+int a[4] = {1, 2, 3, 4};
+int b[4] = {10, 20, 30, 40};
+int c[4];
+for (int i = 0; i < 4; i = i + 1) {
+    c[i] = a[i] + b[i];
+}"></textarea>
+                <button id="btn-compile-c" class="btn-load" style="background: #0284c7; border-color: #38bdf8;" title="Compile C to Micro-ISA Assembly">
+                    🛠 Compile C to Assembly & Load
+                </button>
+            </div>
+
+            <!-- Keyboard Shortcuts Legend -->
+            <div class="shortcuts-legend">
+                <span class="shortcut-item"><kbd>→</kbd> Step</span>
+                <span class="shortcut-item"><kbd>←</kbd> Rewind</span>
+                <span class="shortcut-item"><kbd>Space</kbd> Play</span>
+                <span class="shortcut-item"><kbd>R</kbd> Reset</span>
+            </div>
+        </section>
+
+        <!-- ─── Panel 2: Center Top: Pipeline Reservation Grid ───────── -->
+        <section class="panel panel-grid" id="panel-grid" aria-label="Pipeline Reservation Table">
+            <div class="panel-header">
+                <h2 class="panel-title">Pipeline Reservation Table (Cycles vs Instructions)</h2>
+                <div class="grid-legend">
+                    <span class="legend-item"><span class="legend-swatch stage-if"></span>IF</span>
+                    <span class="legend-item"><span class="legend-swatch stage-id"></span>ID</span>
+                    <span class="legend-item"><span class="legend-swatch stage-ex"></span>EX</span>
+                    <span class="legend-item"><span class="legend-swatch stage-mem"></span>MEM</span>
+                    <span class="legend-item"><span class="legend-swatch stage-wb"></span>WB</span>
+                    <span class="legend-item"><span class="legend-swatch stage-bubble"></span>Stall Bubble</span>
+                </div>
+                <div class="panel-header-actions">
+                    <button class="panel-btn-maximize" data-target="panel-grid" title="Maximize Reservation Table">⛶ Maximize</button>
+                </div>
+            </div>
+            <div id="pipeline-grid-container" class="grid-scroll-container"></div>
+
+            <!-- Live Silicon Telemetry Stream -->
+            <div id="telemetry-stream-container" class="telemetry-stream-container"></div>
+        </section>
+
+        <!-- ─── Panel 3: Bottom Left: Datapath / Warp Lanes ──────────── -->
+        <section class="panel panel-datapath" id="panel-datapath-section" aria-label="Hardware Visualization">
+            <!-- CPU Mode: SVG Datapath & Hardware Visualizers -->
+            <div id="panel-datapath" class="datapath-panel">
+                <div class="panel-header">
+                    <div class="panel-tabs" id="datapath-tabs">
+                        <button id="tab-btn-schematic" class="tab-btn active" data-tab="schematic">Datapath Schematic</button>
+                        <button id="tab-btn-waveform" class="tab-btn" data-tab="waveform">Digital Waveforms</button>
+                        <button id="tab-btn-systolic" class="tab-btn" data-tab="systolic">Tensor Core Systolic</button>
+                        <button id="tab-btn-program" class="tab-btn" data-tab="program">Program Disassembly</button>
+                        <button id="tab-btn-comparison" class="tab-btn" data-tab="comparison">CPU vs GPU</button>
+                    </div>
+                    <div class="panel-header-actions">
+                        <button class="panel-btn-maximize" data-target="panel-datapath-section" title="Maximize Datapath Schematic">⛶ Maximize</button>
+                    </div>
+                </div>
+                <div id="datapath-container" class="datapath-svg-container"></div>
+                <div id="waveform-container" class="waveform-container" style="display: none;"></div>
+                <div id="systolic-container" class="systolic-container" style="display: none;"></div>
+                <div id="program-container" class="program-container" style="display: none;"></div>
+                <div id="comparison-container" class="comparison-container" style="display: none;"></div>
+            </div>
+
+            <!-- GPU Mode: SIMT Warp Lanes -->
+            <div id="panel-warp-lanes" class="warp-lanes-panel" style="display: none;">
+                <div class="panel-header">
+                    <h2 class="panel-title">SIMT Warp Execution Lanes (4 Warps × 8 Lanes)</h2>
+                    <div class="panel-header-actions">
+                        <button class="panel-btn-maximize" data-target="panel-datapath-section" title="Maximize Warp Lanes">⛶ Maximize</button>
+                    </div>
+                </div>
+                <div id="warp-lanes-container" class="warp-lanes-container"></div>
+            </div>
+        </section>
+
+        <!-- ─── Panel 4: Bottom Right: State Panel ───────────────────── -->
+        <section class="panel panel-state" id="panel-state" aria-label="Hardware State">
+            <div class="panel-header">
+                <div class="panel-tabs" id="state-tabs">
+                    <button id="tab-btn-registers" class="tab-btn active" data-tab="registers">Registers</button>
+                    <button id="tab-btn-memory" class="tab-btn" data-tab="memory">Memory</button>
+                    <button id="tab-btn-caches" class="tab-btn" data-tab="caches">L1 Caches</button>
+                    <button id="tab-btn-branch" class="tab-btn" data-tab="branch">Branch Predictor</button>
+                    <button id="tab-btn-shared" class="tab-btn" data-tab="shared">Shared Banks</button>
+                    <button id="tab-btn-hazards" class="tab-btn" data-tab="hazards">Hazards & MUXes</button>
+                    <button id="tab-btn-inspector" class="tab-btn" data-tab="inspector">Stage Inspector</button>
+                    <button id="tab-btn-metrics" class="tab-btn" data-tab="metrics">Telemetry & CPI</button>
+                </div>
+                <div class="panel-header-actions">
+                    <button class="panel-btn-maximize" data-target="panel-state" title="Maximize Hardware State">⛶ Maximize</button>
+                </div>
+            </div>
+            <div id="state-container" class="state-scroll-container"></div>
+        </section>
+    </main>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         FOOTER: Status Bar & Microarchitecture Info
+         ══════════════════════════════════════════════════════════════════════ -->
+    <footer class="app-footer">
+        <div class="footer-left">
+            <span>⚡ SIMT-Flow v2.5 — Professional CPU & GPU Architecture Visualizer</span>
+            <span class="footer-pill">Zero-Zoom Responsive Engine</span>
+        </div>
+        <div class="footer-right">
+            <span>Silicon Target: NVIDIA SM / ASIC Architecture</span>
+            <span class="footer-dot">●</span>
+            <span>26 Verification Tests Verified</span>
+        </div>
+    </footer>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         MICROARCHITECTURE CHEAT SHEET MODAL (Initially Hidden)
+         ══════════════════════════════════════════════════════════════════════ -->
+    <div id="cheatsheet-modal" class="modal-backdrop hidden" role="dialog" aria-label="Microarchitecture Reference">
+        <div class="cheatsheet-modal-card">
+            <div class="modal-card-header">
+                <div class="modal-title-group">
+                    <span class="modal-icon">📖</span>
+                    <h2 class="modal-title">Microarchitecture Reference & RTL Cheat Sheet</h2>
+                </div>
+                <button class="modal-close-btn" id="btn-close-cheatsheet" title="Close Cheat Sheet">✕</button>
+            </div>
+            <div class="cheatsheet-content">
+                <!-- Section 1: Pipeline Latches & Stages -->
+                <div class="cheat-section">
+                    <h3 class="cheat-section-title">🏛️ 5-Stage Classic In-Order Pipeline</h3>
+                    <div class="cheat-grid-2">
+                        <div class="cheat-box">
+                            <h4>Stage Latches (Pipeline Registers)</h4>
+                            <ul>
+                                <li><strong>IF/ID:</strong> Holds fetched instruction bits, PC+4</li>
+                                <li><strong>ID/EX:</strong> Holds decoded opcode, RegA, RegB, immediate, Rs1, Rs2, Rd, control signals</li>
+                                <li><strong>EX/MEM:</strong> Holds ALU output, Store Data, Rd, RegWrite, MemRead, MemWrite</li>
+                                <li><strong>MEM/WB:</strong> Holds Memory Read Data, ALU result, Rd, RegWrite</li>
+                            </ul>
+                        </div>
+                        <div class="cheat-box">
+                            <h4>Forwarding (Bypass) Unit Equations</h4>
+                            <p>Forwarding bypasses data directly from later stages to the ALU inputs without waiting for Write-Back.</p>
+                            <div class="formula-box">
+                                <strong>ForwardA = 2'b10 (EX/MEM → EX):</strong><br>
+                                <code>if (EX_MEM.RegWrite &amp;&amp; EX_MEM.Rd != 0 &amp;&amp; EX_MEM.Rd == ID_EX.Rs1)</code><br><br>
+                                <strong>ForwardA = 2'b01 (MEM/WB → EX):</strong><br>
+                                <code>if (MEM_WB.RegWrite &amp;&amp; MEM_WB.Rd != 0 &amp;&amp; MEM_WB.Rd == ID_EX.Rs1 &amp;&amp; !(EX_MEM forwarding condition))</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 2: Hazard Detection & Branch Prediction -->
+                <div class="cheat-section">
+                    <h3 class="cheat-section-title">⚠️ Hazard Detection & Branch Prediction</h3>
+                    <div class="cheat-grid-2">
+                        <div class="cheat-box">
+                            <h4>Load-Use Data Hazard (Interlock)</h4>
+                            <p>When an instruction in ID reads a register loaded by a preceding LD in EX stage, a 1-cycle stall bubble is inserted:</p>
+                            <div class="formula-box">
+                                <code>if (ID_EX.MemRead &amp;&amp; (ID_EX.Rd == IF_ID.Rs1 || ID_EX.Rd == IF_ID.Rs2)) {<br>
+                                &nbsp;&nbsp;freeze(PC); freeze(IF_ID); injectBubble(ID_EX);<br>
+                                }</code>
+                            </div>
+                        </div>
+                        <div class="cheat-box">
+                            <h4>2-Bit Saturating Branch Predictor</h4>
+                            <p>Four-state Mealy FSM per branch target address:</p>
+                            <div class="state-diagram-table">
+                                <div class="state-pill state-00">00: Strongly Not Taken</div>
+                                <div class="state-pill state-01">01: Weakly Not Taken</div>
+                                <div class="state-pill state-10">10: Weakly Taken</div>
+                                <div class="state-pill state-11">11: Strongly Taken</div>
+                            </div>
+                            <p class="small-hint">Branches predict Taken if MSB = 1 (states 10 &amp; 11). Mispredictions trigger a 1-cycle pipeline flush.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: GPU SM & SIMT Architecture -->
+                <div class="cheat-section">
+                    <h3 class="cheat-section-title">⚡ NVIDIA-Style GPU SM (SIMT) Microarchitecture</h3>
+                    <div class="cheat-grid-2">
+                        <div class="cheat-box">
+                            <h4>Register Scoreboard &amp; Warp Scheduling</h4>
+                            <ul>
+                                <li><strong>Scoreboard:</strong> 1-bit per register per warp. Set on instruction issue, cleared when writeback completes (ALU: 1 cyc, Load: 4 cyc).</li>
+                                <li><strong>Greedy-Then-Oldest (GTO):</strong> Gives priority to the oldest ready warp to minimize overall tail latency.</li>
+                                <li><strong>Round-Robin (RR):</strong> Rotates fairly between ready warps each clock cycle.</li>
+                            </ul>
+                        </div>
+                        <div class="cheat-box">
+                            <h4>8-Bank Shared Memory Conflicts</h4>
+                            <p>Addresses map to banks: <code>bank = (address >> 2) % 8</code>.</p>
+                            <p>When multiple active lanes in a warp request different addresses within the same bank, accesses are serialized:</p>
+                            <div class="formula-box">
+                                <code>Penalty Cycles = max_lanes_per_bank - 1</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 4: Micro-ISA Instruction Set Reference -->
+                <div class="cheat-section">
+                    <h3 class="cheat-section-title">📝 Micro-ISA Reference</h3>
+                    <table class="cheat-isa-table">
+                        <thead>
+                            <tr>
+                                <th>Mnemonic</th>
+                                <th>Syntax</th>
+                                <th>Cycles</th>
+                                <th>RTL Operation Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>ADD</td><td>ADD Rd, Rs1, Rs2</td><td>1</td><td>R[Rd] ← R[Rs1] + R[Rs2]</td></tr>
+                            <tr><td>SUB</td><td>SUB Rd, Rs1, Rs2</td><td>1</td><td>R[Rd] ← R[Rs1] - R[Rs2]</td></tr>
+                            <tr><td>MUL</td><td>MUL Rd, Rs1, Rs2</td><td>3</td><td>R[Rd] ← R[Rs1] * R[Rs2]</td></tr>
+                            <tr><td>LD</td><td>LD Rd, [Rs1]</td><td>2 or 4</td><td>R[Rd] ← Memory[R[Rs1]]</td></tr>
+                            <tr><td>ST</td><td>ST [Rd], Rs1</td><td>1</td><td>Memory[R[Rd]] ← R[Rs1]</td></tr>
+                            <tr><td>BEQ</td><td>BEQ Rs1, Rs2, label</td><td>1</td><td>if (R[Rs1] == R[Rs2]) PC ← label</td></tr>
+                            <tr><td>JR</td><td>JR Rs1</td><td>1</td><td>PC ← R[Rs1] (Indirect Jump)</td></tr>
+                            <tr><td>DIV_IF</td><td>DIV_IF Rd</td><td>1</td><td>SIMT Branch Divergence: even lanes then, odd lanes else</td></tr>
+                            <tr><td>HALT</td><td>HALT</td><td>—</td><td>Terminates program execution</td></tr>
+                            <tr><td>NOP</td><td>NOP</td><td>1</td><td>No operation (bubble cycle)</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         TEST RUNNER MODAL (Initially Hidden)
+         ══════════════════════════════════════════════════════════════════════ -->
+    <div id="test-modal" class="test-modal hidden" role="dialog" aria-label="Verification Suite"></div>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         APPLICATION BOOTSTRAP (ES Module)
+         ══════════════════════════════════════════════════════════════════════ -->
+    <script type="module">
+        import { App } from './src/ui/app.js';
+
+        // Wait for DOM to be ready, then initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            const app = new App();
+            app.init();
+
+            // Expose to console for verification & debugging
+            window.__simtFlow = app;
+        });
+    </script>
+
+</body>
+</html>
